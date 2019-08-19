@@ -1,8 +1,8 @@
 #Top HN Tweet Bot Project
 import tweepy
-import time
 import json
 import requests
+import time
 
 #authorize the bot to use the Twitter API
 CONSUMER_KEY = ""
