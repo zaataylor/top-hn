@@ -53,12 +53,12 @@ while True:
         #tweet about top story
         status = "Poster: {}\nTitle: {}\nURL: {}".format(top_story['by'], top_story['title'], HN_BASE + "item?id=" + str(top_story['id']))
         api.update_status(status)
-        print("Top HN ID: {} Posted: {}".format(status, str(top_hn_id)))
+        print("Top HN ID: {} Posted: {}".format(str(top_hn_id), status, ))
     else:
         current_hn_ids = response.text.replace('[', '').replace(']', '').split(sep=',')
 
         #first story in list of 500 top stories
-        current_hn_id = int(top_hn_ids[0])
+        current_hn_id = int(current_hn_ids[0])
 
         #tweet with updated top post
         if(current_hn_id != top_hn_id):
@@ -67,8 +67,7 @@ while True:
             #tweet here
             status = "New top story!\nPoster: {}\nTitle: {}\nURL: {}".format(current_story['by'], current_story['title'], HN_BASE + "item?id=" + str(current_story['id']))
             api.update_status(status)
-            print("Top HN ID: {} Current HN ID: {} Posted: {}".format(status, str(top_hn_id), str(current_hn_id)))
+            print("Top HN ID: {} Current HN ID: {} Posted: {}".format(str(top_hn_id), str(current_hn_id), status))
         else:
-            print("Previous top story is still ranked #1!")
-            print("Top HN ID: {} Current HN ID: {}".format(str(top_hn_id), str(current_hn_id)))
+            print("Previous top story is still ranked #1!Top HN ID: {} Current HN ID: {}".format(str(top_hn_id), str(current_hn_id)))
     time.sleep(INTERVAL)
