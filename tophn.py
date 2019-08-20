@@ -27,8 +27,8 @@ except:
 #current top story id on HN
 top_hn_id = None
 
-#timeout interval of 30 minutes
-INTERVAL = 60*30
+#timeout interval of 2 minutes to test
+INTERVAL = 60*2
 
 #HN Firebase API URL 
 HN_API_BASE = "https://hacker-news.firebaseio.com/v0/"
@@ -36,8 +36,8 @@ HN_API_BASE = "https://hacker-news.firebaseio.com/v0/"
 #HN Website Base URL
 HN_BASE = "https://news.ycombinator.com/"
 
-#loop that will run every 30 minutes
-while(True):
+#loop that will run every 2 minutes
+while True:
     response = requests.get(HN_API_BASE + "topstories.json")
     #first time running
     if(top_hn_id == None):
@@ -53,6 +53,7 @@ while(True):
         #tweet about top story
         status = "Poster: {}\nTitle: {}\nURL: {}".format(top_story['by'], top_story['title'], HN_BASE + "item?id=" + str(top_story['id']))
         api.update_status(status)
+        print("Top HN ID: {} Posted: {}".format(status, str(top_hn_id)))
     else:
         current_hn_ids = response.text.replace('[', '').replace(']', '').split(sep=',')
 
@@ -66,6 +67,8 @@ while(True):
             #tweet here
             status = "New top story!\nPoster: {}\nTitle: {}\nURL: {}".format(current_story['by'], current_story['title'], HN_BASE + "item?id=" + str(current_story['id']))
             api.update_status(status)
+            print("Top HN ID: {} Current HN ID: {} Posted: {}".format(status, str(top_hn_id), str(current_hn_id)))
         else:
             print("Previous top story is still ranked #1!")
+            print("Top HN ID: {} Current HN ID: {}".format(str(top_hn_id), str(current_hn_id)))
     time.sleep(INTERVAL)
