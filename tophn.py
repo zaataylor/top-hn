@@ -30,8 +30,8 @@ top_hn_id = None
 #set of top story ids used later on
 id_set = set()
 
-#timeout interval of 10 minutes to test
-INTERVAL = 60*10
+#timeout interval of 30 minutes
+INTERVAL = 60*30
 
 #HN Firebase API URL 
 HN_API_BASE = "https://hacker-news.firebaseio.com/v0/"
@@ -39,7 +39,7 @@ HN_API_BASE = "https://hacker-news.firebaseio.com/v0/"
 #HN Website Base URL
 HN_BASE = "https://news.ycombinator.com/"
 
-#loop that will run every 10 minutes
+#loop that will run every 30 minutes
 while True:
     response = requests.get(HN_API_BASE + "topstories.json")
     #first time running
