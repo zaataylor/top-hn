@@ -1,88 +1,79 @@
-#Top HN Tweet Bot Project
-import tweepy
 import json
-import requests
-import time
-from os import environ
+import os
 
-#authorize the bot to use the Twitter API
-CONSUMER_KEY = environ['CONSUMER_KEY']
-CONSUMER_SECRET = environ['CONSUMER_SECRET']
-ACCESS_KEY = environ['ACCESS_KEY']
-ACCESS_SECRET = environ['ACCESS_SECRET']
+import tweepy
+import requests
+import psycopg2
+
+
+# Authorize bot to use the Twitter API
+CONSUMER_KEY = os.getenv("CONSUMER_KEY")
+CONSUMER_SECRET = os.getenv("CONSUMER_SECRET")
+ACCESS_KEY = os.getenv("ACCESS_KEY")
+ACCESS_SECRET = os.getenv("ACCESS_SECRET")
 
 auth = tweepy.OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
 auth.set_access_token(ACCESS_KEY, ACCESS_SECRET)
-
-#API object whose methods invoke Twitter API's endpoints for things like tweeting, liking, etc.
 api = tweepy.API(auth)
 
 try:
-    api.verify_credentials()
-    print("Authentication OK")
-    
-except:
-    print("Error during authentication")
-
-#current top story id on HN
-top_hn_id = None
-
-#set of top story ids used later on
-id_set = set()
-
-#timeout interval of 30 minutes
-INTERVAL = 60*30
-
-#HN Firebase API URL 
-HN_API_BASE = "https://hacker-news.firebaseio.com/v0/"
-
-#HN Website Base URL
-HN_BASE = "https://news.ycombinator.com/"
-
-#loop that will run every 30 minutes
-while True:
-    response = requests.get(HN_API_BASE + "topstories.json")
-    #first time running
-    if(top_hn_id == None):
-        top_hn_ids = response.text.replace('[', '').replace(']', '').split(sep=',')
-
-        #first story in list of 500 top stories
-        top_hn_id = int(top_hn_ids[0])
-        
-        #add story id to set, disqualifying it from appearing again
-        id_set.add(top_hn_id)
-
-        #actual JSON content of story associated with ID
-        response = requests.get(HN_API_BASE + "/item/{}.json".format(top_hn_id))
-        top_story = json.loads(response.text)
-        
-        #tweet about top story
-        status = "Poster: {}\nTitle: {}\nURL: {}".format(top_story['by'], top_story['title'], HN_BASE + "item?id=" + str(top_story['id']))
-        try:
-            api.update_status(status)
-            print("Top HN ID: {} Post: {}".format(str(top_hn_id), status))
-        except tweepy.TweepError:
-            print("Tweet was a duplicate and was not posted")
+    if api.verify_credentials():
+        print("Authentication OK")
     else:
-        current_hn_ids = response.text.replace('[', '').replace(']', '').split(sep=',')
+        print("Authentication failed. Exiting now.")
+        exit(1)
+except tweepy.TweepError as e:
+    print("Tweepy error during authentication: \n\tReason:{}" + 
+        "\n\tResponse:{}\n\tAPI Code: {}".format(e.reason, e.response, e.api_code))
+    exit(1)
 
-        #first story in list of 500 top stories
-        current_hn_id = int(current_hn_ids[0])
+# DB Connection Setup
+DATABASE_URL = os.getenv("DATABASE_URL")
+conn = psycopg2.connect(DATABASE_URL, sslmode="require")
 
-        #tweet with updated top post
-        if(current_hn_id not in id_set):
+# HN-related Details 
+HN_API_BASE = "https://hacker-news.firebaseio.com/v0/"
+HN_SITE_BASE = "https://news.ycombinator.com/"
 
-            id_set.add(current_hn_id)
-            response = requests.get(HN_API_BASE + "/item/{}.json".format(current_hn_id))
-            current_story = json.loads(response.text)
+top_post_ids = requests.get(HN_API_BASE + "topstories.json")
+top_post_id = top_post_ids.json()[0]
+        
+# DB logic checks the ID against existing IDs
+new_story = False
+with conn.cursor() as curs:
+    SQL = "SELECT * FROM hnposts WHERE postid = %s;"
+    data = (top_post_id, )
+    curs.execute(SQL, data)
+    result = curs.fetchone()
+    if result is None:
+        new_story = True
+    else:
+        new_story = False
 
-            #tweet here
-            status = "New top story!\nPoster: {}\nTitle: {}\nURL: {}".format(current_story['by'], current_story['title'], HN_BASE + "item?id=" + str(current_story['id']))
-            try:
-                api.update_status(status)
-                print("Top HN ID: {} Current HN ID: {} Post: {}".format(str(top_hn_id), str(current_hn_id), status))
-            except tweepy.TweepError:
-                print("Tweet was a duplicate and was not posted")
-        else:
-            print("Previous top story is still ranked #1! Top HN ID: {} Current HN ID: {}".format(str(top_hn_id), str(current_hn_id)))
-    time.sleep(INTERVAL)
+if new_story:
+    # Content of story associated with ID
+    story_raw = requests.get(HN_API_BASE + "/item/{}.json".format(top_post_id))
+    story = json.loads(story_raw.text)
+    user_id = story["by"]
+    title = story["title"]
+
+    # Insert new post information, then close connection
+    with conn.cursor() as curs:
+        SQL = "INSERT INTO hnposts (postid, userid, title) VALUES (%s, %s, %s);"
+        data = (top_post_id, user_id, title)
+        curs.execute(SQL, data)
+        conn.commit()
+        conn.close()
+    
+    # Tweet top story
+    status = "New top story!\nPoster: {}\nTitle: {}\nURL: {}".format(user_id,
+                                                                    title,
+                                                                    HN_SITE_BASE + "item?id=" + str(top_post_id))
+    try:
+        api.update_status(status)
+        print("HN ID: {} Post: {}".format(str(top_hn_id), status))
+    except tweepy.TweepError as e:
+        print("Tweepy error when tweeting: \n\tReason:{}" + 
+            "\n\tResponse:{}\n\tAPI Code: {}".format(e.reason, e.response, e.api_code))
+else:
+    pass
