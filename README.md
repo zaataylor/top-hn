@@ -1,3 +1,7 @@
+<a href="https://project-types.github.io/#toy">
+  <img src="https://img.shields.io/badge/project%20type-toy-blue" alt="Toy Badge"/>
+</a>
+
 # top-hn
 A bot that tweets out the top-ranked post on Hacker News every 30 minutes!
 
