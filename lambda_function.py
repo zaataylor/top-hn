@@ -3,6 +3,7 @@ import tweepy
 import requests
 import boto3
 
+import json
 from os import environ
 
 # HN Firebase API URL 
@@ -28,8 +29,7 @@ try:
     print("Authentication OK") 
 except Exception as e:
     print(f"Error during authentication: {e}")
-    exit(1)
-
+    exit(0)
 
 #### Runs every 30 minutes ####
 def lambda_handler(event, context):
@@ -40,11 +40,8 @@ def lambda_handler(event, context):
         region_name="us-east-1",
         aws_session_token=environ['AWS_SESSION_TOKEN']
     )
-    print("instantiated dynamodb client")
+    print("Instantiated DynamoDB client")
     DYNAMO_DB_TABLE="top-hn"
-    print(f"Event: {event}")
-    print(f"Environ: {environ}")
-    print(f"client object: {client}")
     
     # Get ID of top post
     top_posts_response = requests.get(HN_API_BASE + "topstories.json")
@@ -62,6 +59,7 @@ def lambda_handler(event, context):
 
     # If present, exit early
     if response.get('Item', None) != None:
+        print("Found item in DB! Exiting now!")
         return
 
     # Else, tweet
@@ -75,11 +73,15 @@ def lambda_handler(event, context):
     try:
         # Tweet
         status_response = api.update_status(status)
-        tweet_id = status_response['id']
+        # Obtain response JSON string
+        status_json_str = json.dumps(status_response._json)
+        # Deserialise string into python object
+        status_json = json.loads(status_json_str)
+        tweet_id = status_json['id']
         print(f"Tweeted status:\n{status}")
     except Exception as e:
         print(f"Error posting tweet! Error was: {e}")
-        exit(1)
+        return
 
     # Add the HN ID-Tweet ID key-value pair 
     # as an item to the DynamoDB table
@@ -92,8 +94,9 @@ def lambda_handler(event, context):
             TableName=DYNAMO_DB_TABLE,
             Item = item
         )
+        print(f"Successfully added item: {item} to DynamoDB!")
     except Exception as e:
         print(f"Error adding Item {item}. Error was: {e}")
-        exit(1)
+        return
 
     return
