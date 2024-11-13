@@ -1,3 +1,7 @@
+> [!IMPORTANT]
+> **This project has been archived as of November 2024 👋**
+
+
 # top-hn
 A bot that tweets out the top-ranked post on Hacker News every 30 minutes!
 
